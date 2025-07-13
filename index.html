@@ -38,6 +38,8 @@
             margin: 20px;
             backdrop-filter: blur(5px);
             -webkit-backdrop-filter: blur(5px);
+            z-index: 10; /* Контейнер с текстом теперь выше фото */
+            position: relative; /* Важно для z-index */
         }
 
         h1 {
@@ -58,14 +60,17 @@
             z-index: 1;
         }
 
-        .photo-background {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 0;
+        .background-photo {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border-radius: 10px;
+            object-fit: cover;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 0.5s, transform 0.5s;
+            z-index: 5; /* Фото будут поверх текста */
         }
 
         .background-photo {
@@ -211,44 +216,66 @@
 
         // Функция для отображения случайной фотографии
         function showRandomPhoto() {
-            const background = document.getElementById('photo-background');
-            const container = document.getElementById('main-container');
-            const containerRect = container.getBoundingClientRect();
+    const background = document.getElementById('photo-background');
+    const container = document.getElementById('main-container');
+    const containerRect = container.getBoundingClientRect();
+    
+    // Размеры фото
+    const photoWidth = 120;
+    const photoHeight = 120;
+    
+    // Создаем безопасные зоны
+    const safeZones = [
+        { // Слева от контейнера
+            minX: 0,
+            maxX: containerRect.left - photoWidth,
+            minY: 0,
+            maxY: window.innerHeight - photoHeight
+        },
+        { // Справа от контейнера
+            minX: containerRect.right,
+            maxX: window.innerWidth - photoWidth,
+            minY: 0,
+            maxY: window.innerHeight - photoHeight
+        },
+        { // Сверху от контейнера
+            minX: 0,
+            maxX: window.innerWidth - photoWidth,
+            minY: 0,
+            maxY: containerRect.top - photoHeight
+        },
+        { // Снизу от контейнера
+            minX: 0,
+            maxX: window.innerWidth - photoWidth,
+            minY: containerRect.bottom,
+            maxY: window.innerHeight - photoHeight
+        }
+    ];
 
-            let attempts = 0;
-            const maxAttempts = 10;
-            let posX, posY;
+    // Выбираем случайную безопасную зону
+    const zone = safeZones[Math.floor(Math.random() * safeZones.length)];
+    
+    // Если зона существует (не отрицательные размеры)
+    if (zone.maxX > zone.minX && zone.maxY > zone.minY) {
+        const posX = Math.random() * (zone.maxX - zone.minX) + zone.minX;
+        const posY = Math.random() * (zone.maxY - zone.minY) + zone.minY;
+        
+        const photo = document.createElement('img');
+        photo.className = 'background-photo';
 
-            // Пытаемся найти позицию вне области текста
-            do {
-                posX = Math.random() * (window.innerWidth - 150);
-                posY = Math.random() * (window.innerHeight - 150);
-                attempts++;
-            } while (!isPositionValid(posX, posY, containerRect) && attempts < maxAttempts);
+        // Случайный поворот
+        const rotation = Math.random() * 30 - 15;
 
-            // Если не нашли подходящую позицию после нескольких попыток, пропускаем это фото
-            if (attempts >= maxAttempts) return;
-
-            const photo = document.createElement('img');
-            photo.className = 'background-photo';
-
-            // Случайный поворот
-            const rotation = Math.random() * 30 - 15; // -15 до +15 градусов
-
-            photo.style.left = `${posX}px`;
-            photo.style.top = `${posY}px`;
-            photo.style.transform = `rotate(${rotation}deg) scale(0.8)`;
-
-            try {
-                photo.src = photos[Math.floor(Math.random() * photos.length)];
-                photo.onerror = function() {
-                    this.remove();
-                };
-            } catch(e) {
-                console.error("Ошибка загрузки фото:", e);
-                return;
-            }
-
+        photo.style.left = `${posX}px`;
+        photo.style.top = `${posY}px`;
+        photo.style.transform = `rotate(${rotation}deg) scale(0.8)`;
+        
+        try {
+            photo.src = photos[Math.floor(Math.random() * photos.length)];
+            photo.onerror = function() {
+                this.remove();
+            };
+            
             background.appendChild(photo);
 
             // Показываем фото
@@ -258,15 +285,14 @@
                 // Через 3 секунды убираем
                 setTimeout(() => {
                     photo.classList.remove('show');
-
-                    // Через 0.5s анимации удаляем элемент
-                    setTimeout(() => {
-                        photo.remove();
-                    }, 500);
-                }, 2000);
+                    setTimeout(() => photo.remove(), 500);
+                }, 3000);
             }, 100);
+        } catch(e) {
+            console.error("Ошибка загрузки фото:", e);
         }
-
+    }
+}
         // Анимация текста
         function typeText() {
             const text = `Дашка, еще раз хочу поздравить тебя с твоим днем рождения!<br>
